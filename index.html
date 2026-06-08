@@ -952,9 +952,11 @@ function renderEvoChart(snapshots) {
   const rsReg = linReg(rsData.slice(-N), lambda);
   const lastX = kData[kData.length-1]?.x ?? 0;
 
-  // Línea de proyección: del último punto a x=100
-  const kProjLine  = kReg  ? [{ x: lastX, y: +kReg.at(lastX).toFixed(2) },  { x: 100, y: +Math.min(99,Math.max(1,kReg.at(100))).toFixed(2) }]  : [];
-  const rsProjLine = rsReg ? [{ x: lastX, y: +rsReg.at(lastX).toFixed(2) }, { x: 100, y: +Math.min(99,Math.max(1,rsReg.at(100))).toFixed(2) }] : [];
+  // Línea de proyección: usa el blend (calculado abajo) como endpoint al 100%
+  // Se reconstruye después de calcular G_kProjPct en la sección de blend
+  // Por ahora usar regresión pura como placeholder — se actualiza abajo
+  let kProjLine  = kReg  ? [{ x: lastX, y: +kReg.at(lastX).toFixed(2) },  { x: 100, y: +Math.min(99,Math.max(1,kReg.at(100))).toFixed(2) }]  : [];
+  let rsProjLine = rsReg ? [{ x: lastX, y: +rsReg.at(lastX).toFixed(2) }, { x: 100, y: +Math.min(99,Math.max(1,rsReg.at(100))).toFixed(2) }] : [];
 
   // Rango dinámico del eje Y
   const allY = [...kData.map(p=>p.y), ...rsData.map(p=>p.y)];
@@ -992,6 +994,18 @@ function renderEvoChart(snapshots) {
 
     G_kProjPct  = Math.max(0, Math.min(100, pesoJEE * kJEEpct  + pesoReg * kRegPure));
     G_rsProjPct = Math.max(0, Math.min(100, pesoJEE * rsJEEpct + pesoReg * rsRegPure));
+
+    // Actualizar líneas del gráfico con el blend (coherente con el panel)
+    const kLast  = kData[kData.length-1];
+    const rsLast = rsData[rsData.length-1];
+    if (kLast && rsLast && window._evoChart) {
+      const newKProj  = [{ x: kLast.x,  y: +kLast.y.toFixed(2)  }, { x: 100, y: +G_kProjPct.toFixed(2)  }];
+      const newRSProj = [{ x: rsLast.x, y: +rsLast.y.toFixed(2) }, { x: 100, y: +G_rsProjPct.toFixed(2) }];
+      // Dataset index 2 = KF proy, index 3 = RS proy
+      window._evoChart.data.datasets[2].data = newKProj;
+      window._evoChart.data.datasets[3].data = newRSProj;
+      window._evoChart.update('none'); // sin animación para no distorsionar
+    }
 
     renderProjSummary();
   }
