@@ -295,16 +295,21 @@ table.proj tr:hover td { background: var(--bg2); }
 </div><!-- /scoreboard -->
 
 <!-- METRIC CARDS -->
+<div style="padding:5px 20px 3px;background:var(--bg2);font-family:var(--mono);font-size:8px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  Modelo actas pendientes + JEE
+</div>
 <div class="cards-row">
   <div class="mcard">
     <div class="mcard-label">KF proyectado</div>
     <div class="mcard-val red" id="kf-proj-val">—</div>
     <div class="mcard-sub" id="kf-proj-sub">votos</div>
+    <div id="kf-proj-pct" style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--k2);margin-top:4px;">—%</div>
   </div>
   <div class="mcard">
     <div class="mcard-label">RS proyectado</div>
     <div class="mcard-val blue" id="rs-proj-val">—</div>
     <div class="mcard-sub" id="rs-proj-sub">votos</div>
+    <div id="rs-proj-pct" style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--rs2);margin-top:4px;">—%</div>
   </div>
   <div class="mcard">
     <div class="mcard-label">Brecha actual</div>
@@ -705,6 +710,12 @@ function renderProj(data) {
   set('rs-proj-val', fmt(Math.round(rsProjTotal)));
   set('kf-proj-sub', '+'+fmt(Math.round(kAdicTotal))+' adicionales');
   set('rs-proj-sub', '+'+fmt(Math.round(rsAdicTotal))+' adicionales');
+  // % proyectados
+  if (kProjTotal + rsProjTotal > 0) {
+    const tot = kProjTotal + rsProjTotal;
+    set('kf-proj-pct', (kProjTotal/tot*100).toFixed(2)+'%');
+    set('rs-proj-pct', (rsProjTotal/tot*100).toFixed(2)+'%');
+  }
 
   renderProjSummary();
 
@@ -739,6 +750,30 @@ function renderProj(data) {
   const nDep = rows.filter(r=>!r.isExterior).length;
   const nExt = rows.filter(r=>r.isExterior).length;
   set('dep-hdr-info', nDep+' departamentos + '+nExt+' exterior · proy. JEE');
+
+  // Fila de totales al final de la tabla
+  const totJee       = rows.reduce((s,r) => s + (r.jee||0), 0);
+  const totPend      = rows.reduce((s,r) => s + (r.pendientes||0), 0);
+  const totVotosRest = rows.reduce((s,r) => s + (r.votosRest||0), 0);
+  const totKAdic     = rows.reduce((s,r) => s + (r.kAdic||0), 0);
+  const totRSAdic    = rows.reduce((s,r) => s + (r.rsAdic||0), 0);
+  const totDif       = totKAdic - totRSAdic;
+  const totDifClass  = totDif >= 0 ? 'diff-pos' : 'diff-neg';
+
+  tbody.innerHTML += `
+    <tr style="border-top:2px solid var(--border2);background:var(--bg2);font-weight:600;">
+      <td class="dep-name" style="color:var(--gold);font-size:9px;letter-spacing:.1em;">TOTAL</td>
+      <td class="right" style="color:var(--text2)">—</td>
+      <td class="right" style="color:var(--text2)">${totJee > 0 ? totJee.toLocaleString('es-PE') : '—'}</td>
+      <td class="right" style="color:var(--gold)">${totPend > 0 ? totPend.toLocaleString('es-PE') : '—'}</td>
+      <td class="right">—</td>
+      <td class="right">—</td>
+      <td></td>
+      <td class="right" style="color:var(--text1)">${totVotosRest > 0 ? fmt(Math.round(totVotosRest)) : '—'}</td>
+      <td class="right kval">${totKAdic > 0 ? '+'+fmt(Math.round(totKAdic)) : '—'}</td>
+      <td class="right rsval">${totRSAdic > 0 ? '+'+fmt(Math.round(totRSAdic)) : '—'}</td>
+      <td class="right ${totDifClass}">${totDif !== 0 ? sign(totDif)+fmt(Math.abs(Math.round(totDif))) : '—'}</td>
+    </tr>`;
 }
 
 function renderSemaforo(kPct, actas) {
