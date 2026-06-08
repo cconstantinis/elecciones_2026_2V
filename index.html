@@ -661,11 +661,22 @@ function renderProj(data) {
       }
     }
 
-    // Proyección adicionales — exterior ya está al 100%, no proyectar
+    // Proyección adicionales — incluye exterior si tiene pendientes
     let kAdic = 0, rsAdic = 0;
-    if (avance > 0 && avance < 99.9 && votosRest > 0 && !d.isExterior) {
-      kAdic  = votosRest * (kPct/100);
-      rsAdic = votosRest * (rsPct/100);
+    const tieneData = kPct > 0 && rsPct > 0;
+
+    if (avance < 99.9 && actasRestantes > 0 && tieneData) {
+      // Recalcular votosRest para exterior con avance=0: usar participacion nacional aprox
+      let votosRestFinal = votosRest;
+      if (avance === 0 && contab === 0 && actasRestantes > 0) {
+        // Sin datos propios: estimar con promedio nacional ~220 votos válidos/acta
+        const VOT_POR_ACTA_NAC = window._votosXActaNac || 220;
+        votosRestFinal = Math.round(actasRestantes * VOT_POR_ACTA_NAC);
+      }
+      if (votosRestFinal > 0) {
+        kAdic  = votosRestFinal * (kPct/100);
+        rsAdic = votosRestFinal * (rsPct/100);
+      }
     }
 
     kTotal      += kV;
@@ -689,6 +700,10 @@ function renderProj(data) {
   // Guardar votos actuales para que renderProjSummary pueda calcular adicionales
   window._kActualVotos  = kTotal;
   window._rsActualVotos = rsTotal;
+  // Ratio nacional votos válidos / actas — para estimación exterior sin datos
+  const totActasContab = rows.filter(r=>!r.isExterior).reduce((s,r) => s+(r.contabilizadas||0), 0);
+  const totVotosContab = rows.filter(r=>!r.isExterior).reduce((s,r) => s+(r.kV||0)+(r.rsV||0), 0);
+  if (totActasContab > 0) window._votosXActaNac = totVotosContab / totActasContab;
   window._kAdicional    = kAdicTotal;
   window._rsAdicional   = rsAdicTotal;
   G_kProjVotos  = Math.round(kProjTotal);
