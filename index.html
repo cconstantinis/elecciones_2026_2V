@@ -949,19 +949,35 @@ function renderEvoChart(snapshots) {
   const yMin = Math.max(0,  Math.floor(dataMin - yPad));
   const yMax = Math.min(100, Math.ceil(dataMax  + yPad));
 
-  // Proyección al 100% → actualizar cards si hay regresión
+  // Proyección mejorada: blend JEE + regresión sobre gap
   if (kReg && rsReg) {
-    const kAt100  = Math.max(0, Math.min(100, kReg.at(100)));
-    const rsAt100 = Math.max(0, Math.min(100, rsReg.at(100)));
-    G_kProjPct  = kAt100;
-    G_rsProjPct = rsAt100;
     G_kSlope    = kReg.slope;
     G_rsSlope   = rsReg.slope;
     G_actasActual = lastX;
-    document.getElementById('gap-proj-val').textContent =
-      sign(kAt100-rsAt100) + Math.abs(kAt100-rsAt100).toFixed(1) + 'pp';
-    document.getElementById('gap-proj-val').style.color = kAt100>=rsAt100 ? 'var(--k2)' : 'var(--rs2)';
-    set('gap-proj-sub', (kAt100>=rsAt100?'KF':'RS')+' proy. regresión');
+
+    // ── 1. Regresión sobre el GAP (más estable que K y RS por separado) ──
+    const gapData = kData.map((p, i) => ({
+      x: p.x,
+      y: p.y - (rsData[i]?.y ?? (100 - p.y))
+    }));
+    const gapReg   = linReg(gapData.slice(-N), lambda);
+    const gapAt100 = gapReg ? gapReg.at(100) : (kReg.at(100) - rsReg.at(100));
+    const kRegPure  = 50 + gapAt100 / 2;
+    const rsRegPure = 50 - gapAt100 / 2;
+
+    // ── 2. Blend ponderado: JEE domina al final ──
+    // Al 93% actas → peso_JEE=0.93, peso_reg=0.07
+    const pesoJEE = Math.min(0.97, lastX / 100);
+    const pesoReg = 1 - pesoJEE;
+
+    const kJEEpct  = (G_kProjVotos && G_rsProjVotos)
+      ? G_kProjVotos  / (G_kProjVotos + G_rsProjVotos) * 100
+      : kData[kData.length-1]?.y ?? 50;
+    const rsJEEpct = 100 - kJEEpct;
+
+    G_kProjPct  = Math.max(0, Math.min(100, pesoJEE * kJEEpct  + pesoReg * kRegPure));
+    G_rsProjPct = Math.max(0, Math.min(100, pesoJEE * rsJEEpct + pesoReg * rsRegPure));
+
     renderProjSummary();
   }
 
