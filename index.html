@@ -903,9 +903,10 @@ function renderEvoChart(snapshots) {
   // Ventana muy reciente: captura pendiente ACTUAL (patrón tijeras se acelera)
   // N=4: solo los últimos 4 snapshots — pendiente más reciente
   // lambda=0.5: ponderación exponencial — el snapshot más reciente pesa e^2 ≈ 7x más que el más antiguo
-  const N = kData.length < 6 ? kData.length : 4;
-  const kReg  = linReg(kData.slice(-N), 0.5);
-  const rsReg = linReg(rsData.slice(-N), 0.5);
+  // N=8, λ=0.3: captura tendencia última hora sin ser tan volátil
+  const N = kData.length < 8 ? kData.length : 8;
+  const kReg  = linReg(kData.slice(-N), 0.3);
+  const rsReg = linReg(rsData.slice(-N), 0.3);
   const lastX = kData[kData.length-1]?.x ?? 0;
 
   // Línea de proyección: del último punto a x=100
