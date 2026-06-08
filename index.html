@@ -439,19 +439,20 @@ async function fetchTodo() {
 }
 
 async function fetchDeps() {
-  // Dos llamadas separadas para no superar límite de 50 subrequests del Worker
   try {
-    const [rP, rT] = await Promise.allSettled([
+    const [rP, rT, rE] = await Promise.allSettled([
       fetch(`${WORKER_URL}/todos-departamentos`).then(r => r.json()),
       fetch(`${WORKER_URL}/dep-totales`).then(r => r.json()),
+      fetch(`${WORKER_URL}/exterior`).then(r => r.json()),
     ]);
 
     const dP = rP.status === 'fulfilled' ? rP.value : null;
     const dT = rT.status === 'fulfilled' ? rT.value : null;
+    const dE = rE.status === 'fulfilled' ? rE.value : null;
 
     if (!dP?.data) return null;
 
-    // Merge totales by ubigeo (si están disponibles)
+    // Merge totales by ubigeo
     const totalesMap = {};
     (dT?.data || []).forEach(t => { totalesMap[t.ubigeo] = t; });
 
@@ -468,6 +469,27 @@ async function fetchDeps() {
         totalVotosValidos:   t.totalVotosValidos    ?? 0,
       };
     });
+
+    // Agregar voto exterior como sección separada al final
+    if (dE?.data?.length) {
+      const extRows = dE.data.map(d => ({
+        nombre:         '🌐 ' + d.nombre,
+        ubigeo:         d.ubigeo,
+        actas:          d.actas           ?? 0,
+        contabilizadas: 0,
+        totalActas:     0,
+        enviadasJee:    0,
+        pendientesJee:  0,
+        participacion:  0,
+        totalVotosEmitidos: 0,
+        totalVotosValidos:  0,
+        candidatos:     d.candidatos      || [],
+        error:          d.error           || null,
+        isExterior:     true,
+      }));
+      dP.data = [...dP.data, ...extRows];
+    }
+
     return dP;
   } catch(e) {
     console.warn('fetchDeps error:', e.message);
@@ -621,9 +643,9 @@ function renderProj(data) {
       }
     }
 
-    // Proyección adicionales — usando % departamental actual
+    // Proyección adicionales — exterior ya está al 100%, no proyectar
     let kAdic = 0, rsAdic = 0;
-    if (avance > 0 && avance < 99.9 && votosRest > 0) {
+    if (avance > 0 && avance < 99.9 && votosRest > 0 && !d.isExterior) {
       kAdic  = votosRest * (kPct/100);
       rsAdic = votosRest * (rsPct/100);
     }
@@ -634,7 +656,8 @@ function renderProj(data) {
     rsAdicTotal += rsAdic;
 
     return { dep: d.nombre, avance, kPct, rsPct, kV, rsV, kAdic, rsAdic,
-             jee, pendientes, votosRest, totalActas, dif: kAdic - rsAdic };
+             jee, pendientes, votosRest, totalActas, dif: kAdic - rsAdic,
+             isExterior: !!d.isExterior };
   });
 
   rows.sort((a,b) => b.avance - a.avance);
@@ -671,8 +694,8 @@ function renderProj(data) {
     const rsW = 60-kW;
     const difClass = r.dif >= 0 ? 'diff-pos' : 'diff-neg';
     const avStr = r.avance > 0 ? f1(r.avance)+'%' : '0%';
-    return `<tr>
-      <td class="dep-name">${r.dep}</td>
+    return `<tr${r.isExterior ? ' style="opacity:0.75;border-top:1px solid var(--border2)"' : ''}>
+      <td class="dep-name" style="${r.isExterior?'color:var(--text2)':''}">${r.dep}</td>
       <td class="right" style="color:var(--text2)">${avStr}</td>
       <td class="right" style="color:var(--text2)">${r.jee > 0 ? r.jee.toLocaleString('es-PE') : '—'}</td>
       <td class="right" style="color:${r.pendientes>0?'var(--gold)':'var(--text3)'}">${r.pendientes > 0 ? r.pendientes.toLocaleString('es-PE') : '—'}</td>
@@ -691,7 +714,9 @@ function renderProj(data) {
     </tr>`;
   }).join('');
 
-  set('dep-hdr-info', rows.length+' departamentos · proy. x actas pendientes');
+  const nDep = rows.filter(r=>!r.isExterior).length;
+  const nExt = rows.filter(r=>r.isExterior).length;
+  set('dep-hdr-info', nDep+' departamentos + '+nExt+' exterior · proy. JEE');
 }
 
 function renderSemaforo(kPct, actas) {
@@ -777,50 +802,50 @@ function renderProjSummary() {
   const rsV    = G_rsProjVotos!= null ? fmt(G_rsProjVotos)       : '—';
   const kWins  = G_kProjPct != null && G_kProjPct > 50;
 
+  const isMobile = window.innerWidth < 640;
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin-top:16px;border:1px solid var(--border);">
+    <div style="display:flex;flex-direction:${isMobile?'column':'row'};margin-top:16px;border:1px solid var(--border);">
       <!-- KF -->
-      <div style="padding:16px 24px;background:var(--k-bg);border-right:1px solid var(--border);">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;">
-          Keiko Fujimori — proyectado al 100%
+      <div style="flex:1;padding:${isMobile?'14px 16px':'16px 24px'};background:var(--k-bg);border-${isMobile?'bottom':'right'}:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px;">
+          Keiko Fujimori — proy. al 100%
         </div>
-        <div style="font-family:var(--mono);font-size:48px;font-weight:600;color:var(--k2);line-height:1;letter-spacing:-.02em;">
+        <div style="font-family:var(--mono);font-size:${isMobile?'38px':'48px'};font-weight:600;color:var(--k2);line-height:1;letter-spacing:-.02em;">
           ${kPct}%
         </div>
-        <div style="font-family:var(--mono);font-size:12px;color:var(--text1);margin-top:6px;">
+        <div style="font-family:var(--mono);font-size:${isMobile?'11px':'12px'};color:var(--text1);margin-top:6px;">
           ~${kV} votos estimados
         </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text2);margin-top:3px;">
-          Regresión sobre ${G_kProjPct!=null?'historial':'—'} + JEE por departamento
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text2);margin-top:2px;">
+          Regresión historial + JEE departamental
         </div>
       </div>
       <!-- GAP -->
-      <div style="padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg2);min-width:120px;gap:4px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.12em;">BRECHA PROY.</div>
-        <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:${kWins?'var(--k2)':'var(--rs2)'};">
-          ${G_kProjPct!=null ? sign(G_kProjPct-G_rsProjPct)+Math.abs(G_kProjPct-G_rsProjPct).toFixed(2)+'pp' : '—'}
+      <div style="padding:${isMobile?'10px 16px':'16px'};display:flex;flex-direction:${isMobile?'row':'column'};align-items:center;justify-content:center;background:var(--bg2);${isMobile?'':'min-width:120px;'}gap:${isMobile?'16px':'4px'};border-${isMobile?'bottom':'right'}:1px solid var(--border);">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.12em;text-align:center;">BRECHA PROY.</div>
+          <div style="font-family:var(--mono);font-size:${isMobile?'20px':'22px'};font-weight:600;color:${kWins?'var(--k2)':'var(--rs2)'};text-align:center;">
+            ${G_kProjPct!=null ? sign(G_kProjPct-G_rsProjPct)+Math.abs(G_kProjPct-G_rsProjPct).toFixed(2)+'pp' : '—'}
+          </div>
         </div>
-        <div style="font-family:var(--mono);font-size:9px;color:${kWins?'var(--k)':'var(--rs)'};">
-          ${kWins?'KF gana':'RS gana'}
+        <div style="text-align:center;">
+          <div style="font-family:var(--mono);font-size:9px;color:${kWins?'var(--k)':'var(--rs)'};">${kWins?'KF gana':'RS gana'}</div>
+          ${G_kProjVotos && G_rsProjVotos ? `<div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:2px;">~${fmt(Math.abs(G_kProjVotos - G_rsProjVotos))} votos</div>` : ''}
         </div>
-        ${G_kProjVotos && G_rsProjVotos ? `
-        <div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:4px;">
-          ~${fmt(Math.abs(G_kProjVotos - G_rsProjVotos))} votos
-        </div>` : ''}
       </div>
       <!-- RS -->
-      <div style="padding:16px 24px;background:var(--rs-bg);">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;text-align:right;">
-          Roberto Sánchez — proyectado al 100%
+      <div style="flex:1;padding:${isMobile?'14px 16px':'16px 24px'};background:var(--rs-bg);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px;text-align:${isMobile?'left':'right'};">
+          R. Sánchez — proy. al 100%
         </div>
-        <div style="font-family:var(--mono);font-size:48px;font-weight:600;color:var(--rs2);line-height:1;letter-spacing:-.02em;text-align:right;">
+        <div style="font-family:var(--mono);font-size:${isMobile?'38px':'48px'};font-weight:600;color:var(--rs2);line-height:1;letter-spacing:-.02em;text-align:${isMobile?'left':'right'};">
           ${rsPct}%
         </div>
-        <div style="font-family:var(--mono);font-size:12px;color:var(--text1);margin-top:6px;text-align:right;">
+        <div style="font-family:var(--mono);font-size:${isMobile?'11px':'12px'};color:var(--text1);margin-top:6px;text-align:${isMobile?'left':'right'};">
           ~${rsV} votos estimados
         </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text2);margin-top:3px;text-align:right;">
-          Regresión sobre ${G_rsProjPct!=null?'historial':'—'} + JEE por departamento
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text2);margin-top:2px;text-align:${isMobile?'left':'right'};">
+          Regresión historial + JEE departamental
         </div>
       </div>
     </div>
