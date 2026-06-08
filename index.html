@@ -688,14 +688,7 @@ function renderProj(data) {
   window._rsAdicional   = rsAdicTotal;
   G_kProjVotos  = Math.round(kProjTotal);
   G_rsProjVotos = Math.round(rsProjTotal);
-  // Cards se actualizan desde renderProjSummary para consistencia
-  // Solo actualizar si aún no hay regresión disponible
-  if (G_kProjPct == null) {
-    set('kf-proj-val', fmt(Math.round(kProjTotal)));
-    set('rs-proj-val', fmt(Math.round(rsProjTotal)));
-    set('kf-proj-sub', '+'+fmt(Math.round(kAdicTotal))+' adicionales');
-    set('rs-proj-sub', '+'+fmt(Math.round(rsAdicTotal))+' adicionales');
-  }
+
 
   const gapActEl = document.getElementById('gap-actual-val');
   gapActEl.textContent = sign(gapActual)+fmt(Math.abs(Math.round(gapActual)))+' votos';
@@ -706,6 +699,13 @@ function renderProj(data) {
   gapPrEl.textContent = sign(gapProj)+fmt(Math.abs(Math.round(gapProj)))+' votos';
   gapPrEl.style.color = gapProj>=0 ? 'var(--k2)' : 'var(--rs2)';
   set('gap-proj-sub', (gapProj>=0?'KF':'RS')+' proy. actas pend. + JEE');
+
+  // Cards KF/RS — JEE, siempre consistentes con la tabla
+  set('kf-proj-val', fmt(Math.round(kProjTotal)));
+  set('rs-proj-val', fmt(Math.round(rsProjTotal)));
+  set('kf-proj-sub', '+'+fmt(Math.round(kAdicTotal))+' adicionales');
+  set('rs-proj-sub', '+'+fmt(Math.round(rsAdicTotal))+' adicionales');
+
   renderProjSummary();
 
   // Tabla
@@ -891,12 +891,15 @@ function renderEvoChart(snapshots) {
   // Ventana muy reciente: captura pendiente ACTUAL (patrón tijeras se acelera)
   // N=4: solo los últimos 4 snapshots — pendiente más reciente
   // lambda=0.5: ponderación exponencial — el snapshot más reciente pesa e^2 ≈ 7x más que el más antiguo
-  // N base=20, +2 por cada 2% adicional de actas sobre 80% → más estable al final
+  // N dinámico: base 20, +2 por cada 2% sobre 80%
+  // λ dinámico: decrece con el avance — al inicio captura tendencia, al final estabiliza
+  //   20% actas → λ=0.50 | 60% → λ=0.29 | 85% → λ=0.12 | 90%+ → λ=0.08
   const actasPct = kData.length > 0 ? kData[kData.length-1].x : 0;
   const extraN   = actasPct > 80 ? Math.floor((actasPct - 80) / 2) * 2 : 0;
   const N        = Math.min(kData.length, 20 + extraN);
-  const kReg  = linReg(kData.slice(-N), 0.3);
-  const rsReg = linReg(rsData.slice(-N), 0.3);
+  const lambda   = Math.max(0.08, 0.5 - Math.max(0, actasPct - 20) / 70 * 0.42);
+  const kReg  = linReg(kData.slice(-N), lambda);
+  const rsReg = linReg(rsData.slice(-N), lambda);
   const lastX = kData[kData.length-1]?.x ?? 0;
 
   // Línea de proyección: del último punto a x=100
