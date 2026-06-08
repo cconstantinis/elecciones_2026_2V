@@ -367,8 +367,10 @@ table.proj tr:hover td { background: var(--bg2); }
       <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:2px;background:#6bbfff;display:inline-block"></span>RS proyectado (regresión)</span>
       <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:2px;background:#22c55e;display:inline-block"></span>50% mayoría</span>
     </div>
-    <div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:6px;">
-      Cómo fue evolucionando el conteo a medida que ONPE computaba las actas. Línea punteada = regresión lineal proyectada al 100%.
+    <div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:6px;line-height:1.5;">
+      Línea punteada = regresión ponderada (últimos 4 snapshots, peso exponencial). 
+      Análogo 2021: Castillo–Keiko cruzaron en ~90% actas. 
+      Votos rurales remotos llegan al final → convergencia se acelera.
     </div>
     <div id="proj-summary"></div>
   </div>
@@ -587,16 +589,26 @@ function render(data) {
 
 }
 
-function linReg(pts) {
-  // pts = [{x, y}] — regresión lineal mínimos cuadrados
+function linReg(pts, lambda=0.4) {
+  // Regresión lineal ponderada exponencialmente
+  // lambda: tasa de decaimiento — puntos recientes pesan exp(lambda*i) más
+  // lambda=0 → pesos iguales; lambda=0.4 → último punto pesa e^(0.4*n) más que el primero
   const n = pts.length;
   if (n < 2) return null;
-  let sx=0, sy=0, sxy=0, sx2=0;
-  pts.forEach(p => { sx+=p.x; sy+=p.y; sxy+=p.x*p.y; sx2+=p.x*p.x; });
-  const den = n*sx2 - sx*sx;
+  const weights = pts.map((_, i) => Math.exp(lambda * i)); // creciente: recientes pesan más
+  const sw   = weights.reduce((a,b) => a+b, 0);
+  let swx=0, swy=0, swxy=0, swx2=0;
+  pts.forEach((p, i) => {
+    const w = weights[i];
+    swx  += w * p.x;
+    swy  += w * p.y;
+    swxy += w * p.x * p.y;
+    swx2 += w * p.x * p.x;
+  });
+  const den = sw*swx2 - swx*swx;
   if (Math.abs(den) < 1e-9) return null;
-  const slope = (n*sxy - sx*sy) / den;
-  const intercept = (sy - slope*sx) / n;
+  const slope     = (sw*swxy - swx*swy) / den;
+  const intercept = (swy - slope*swx) / sw;
   return { slope, intercept, at: x => slope*x + intercept };
 }
 
@@ -871,11 +883,12 @@ function renderEvoChart(snapshots) {
   }).filter(Boolean);
 
   // Regresión lineal sobre últimos N puntos (más peso a los recientes)
-  // Ventana chica: captura pendiente ACTUAL, no promedio histórico
-  // Con pocos snapshots (<10) usa todos; con muchos usa últimos 6
-  const N = kData.length < 10 ? kData.length : 6;
-  const kReg  = linReg(kData.slice(-N));
-  const rsReg = linReg(rsData.slice(-N));
+  // Ventana muy reciente: captura pendiente ACTUAL (patrón tijeras se acelera)
+  // N=4: solo los últimos 4 snapshots — pendiente más reciente
+  // lambda=0.5: ponderación exponencial — el snapshot más reciente pesa e^2 ≈ 7x más que el más antiguo
+  const N = kData.length < 6 ? kData.length : 4;
+  const kReg  = linReg(kData.slice(-N), 0.5);
+  const rsReg = linReg(rsData.slice(-N), 0.5);
   const lastX = kData[kData.length-1]?.x ?? 0;
 
   // Línea de proyección: del último punto a x=100
