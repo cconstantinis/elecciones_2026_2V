@@ -681,10 +681,21 @@ function renderProj(data) {
   const gapActual   = kTotal  - rsTotal;
   const gapProj     = kProjTotal - rsProjTotal;
 
-  set('kf-proj-val', fmt(Math.round(kProjTotal)));
-  set('rs-proj-val', fmt(Math.round(rsProjTotal)));
-  set('kf-proj-sub', '+'+fmt(Math.round(kAdicTotal))+' adicionales');
-  set('rs-proj-sub', '+'+fmt(Math.round(rsAdicTotal))+' adicionales');
+  // Guardar votos actuales para que renderProjSummary pueda calcular adicionales
+  window._kActualVotos  = kTotal;
+  window._rsActualVotos = rsTotal;
+  window._kAdicional    = kAdicTotal;
+  window._rsAdicional   = rsAdicTotal;
+  G_kProjVotos  = Math.round(kProjTotal);
+  G_rsProjVotos = Math.round(rsProjTotal);
+  // Cards se actualizan desde renderProjSummary para consistencia
+  // Solo actualizar si aún no hay regresión disponible
+  if (G_kProjPct == null) {
+    set('kf-proj-val', fmt(Math.round(kProjTotal)));
+    set('rs-proj-val', fmt(Math.round(rsProjTotal)));
+    set('kf-proj-sub', '+'+fmt(Math.round(kAdicTotal))+' adicionales');
+    set('rs-proj-sub', '+'+fmt(Math.round(rsAdicTotal))+' adicionales');
+  }
 
   const gapActEl = document.getElementById('gap-actual-val');
   gapActEl.textContent = sign(gapActual)+fmt(Math.abs(Math.round(gapActual)));
@@ -695,8 +706,6 @@ function renderProj(data) {
   gapPrEl.textContent = sign(gapProj)+fmt(Math.abs(Math.round(gapProj)));
   gapPrEl.style.color = gapProj>=0 ? 'var(--k2)' : 'var(--rs2)';
   set('gap-proj-sub', (gapProj>=0?'KF':'RS')+' proy. al 100%');
-  G_kProjVotos  = Math.round(kProjTotal);
-  G_rsProjVotos = Math.round(rsProjTotal);
   renderProjSummary();
 
   // Tabla
@@ -806,110 +815,70 @@ async function fetchHistorial() {
   } catch { return []; }
 }
 
+function calcProyFinal() {
+  // Fuente única: % regresión × total votos JEE
+  if (G_kProjPct == null || G_kProjVotos == null || G_rsProjVotos == null) return null;
+  const totalJEE  = G_kProjVotos + G_rsProjVotos;
+  const kVotos    = Math.round(G_kProjPct  / 100 * totalJEE);
+  const rsVotos   = Math.round(G_rsProjPct / 100 * totalJEE);
+  const kPct      = G_kProjPct;
+  const rsPct     = G_rsProjPct;
+  const gap       = kPct - rsPct;
+  const gapVotos  = kVotos - rsVotos;
+  return { kVotos, rsVotos, kPct, rsPct, gap, gapVotos, totalJEE };
+}
+
 function renderProjSummary() {
   const el = document.getElementById('proj-summary');
   if (!el) return;
 
-  // ── % JEE (base) ──────────────────────────────────
-  let kJeePct, rsJeePct, kWins;
-  if (G_kProjVotos != null && G_rsProjVotos != null) {
-    const tot = G_kProjVotos + G_rsProjVotos;
-    kJeePct  = G_kProjVotos  / tot * 100;
-    rsJeePct = G_rsProjVotos / tot * 100;
-  } else { kJeePct = null; rsJeePct = null; }
+  const p = calcProyFinal();
+  if (!p) { el.innerHTML = ''; return; }
 
-  // ── Modelo Híbrido: JEE + corrección por pendiente regresión ──
-  // Lógica: el JEE asume composición constante dentro de cada dept (sesgo urbano)
-  // La regresión captura cuánto cambia el % nacional por cada 1% de actas adicional
-  // Corrección: kPct_JEE + slope × actas_restantes
-  let kHybrid = null, rsHybrid = null;
-  if (kJeePct != null && G_kSlope != null && G_actasActual > 0) {
-    const actasRest = 100 - G_actasActual;
-    kHybrid  = kJeePct  + G_kSlope  * actasRest;
-    rsHybrid = rsJeePct + G_rsSlope * actasRest;
-    // Normalizar a 100%
-    const sumH = kHybrid + rsHybrid;
-    kHybrid  = kHybrid  / sumH * 100;
-    rsHybrid = rsHybrid / sumH * 100;
-  }
-
-  const kV   = G_kProjVotos  != null ? fmt(G_kProjVotos)  : '—';
-  const rsV  = G_rsProjVotos != null ? fmt(G_rsProjVotos) : '—';
-
-  // Display values: híbrido como primario, JEE y regresión como referencia
-  const kDisp  = kHybrid  != null ? kHybrid.toFixed(2)  : (kJeePct  != null ? kJeePct.toFixed(2)  : '—');
-  const rsDisp = rsHybrid != null ? rsHybrid.toFixed(2) : (rsJeePct != null ? rsJeePct.toFixed(2) : '—');
-  kWins = kDisp !== '—' && parseFloat(kDisp) > 50;
-  const hybGap = kDisp !== '—' ? Math.abs(parseFloat(kDisp)-parseFloat(rsDisp)).toFixed(2) : '—';
-
-  // Referencias
-  const kJeeStr  = kJeePct  != null ? kJeePct.toFixed(2)+'%'  : '—';
-  const rsJeeStr = rsJeePct != null ? rsJeePct.toFixed(2)+'%' : '—';
-  const kRegStr  = G_kProjPct  != null ? G_kProjPct.toFixed(2)+'%'  : '—';
-  const rsRegStr = G_rsProjPct != null ? G_rsProjPct.toFixed(2)+'%' : '—';
-  const jeeGap   = kJeePct  != null ? Math.abs(kJeePct-rsJeePct).toFixed(2)   : '—';
-  const regGap   = G_kProjPct != null ? Math.abs(G_kProjPct-G_rsProjPct).toFixed(2) : '—';
-  const regWins  = G_kProjPct != null && G_kProjPct > G_rsProjPct;
-
+  const kWins  = p.kPct > p.rsPct;
   const isMobile = window.innerWidth < 640;
 
   el.innerHTML = `
-    <!-- ── MODELO HÍBRIDO (PRINCIPAL) ── -->
     <div style="font-family:var(--mono);font-size:8px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-top:16px;margin-bottom:5px;">
-      Proyección híbrida — JEE corregido por pendiente tendencial
+      Proyección al 100% — Regresión tendencial × votos JEE
     </div>
     <div style="display:flex;flex-direction:${isMobile?'column':'row'};border:1px solid var(--border);">
-      <!-- KF -->
       <div style="flex:1;padding:${isMobile?'12px 16px':'14px 20px'};background:var(--k-bg);border-${isMobile?'bottom':'right'}:1px solid var(--border);">
         <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.1em;margin-bottom:3px;">KEIKO FUJIMORI</div>
-        <div style="font-family:var(--mono);font-size:${isMobile?'36px':'46px'};font-weight:600;color:var(--k2);line-height:1;">${kDisp}%</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--text1);margin-top:5px;">~${kV} votos (base JEE)</div>
+        <div style="font-family:var(--mono);font-size:${isMobile?'36px':'46px'};font-weight:600;color:var(--k2);line-height:1;">${p.kPct.toFixed(2)}%</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text1);margin-top:5px;">~${fmt(p.kVotos)} votos estimados</div>
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text2);margin-top:2px;">% tendencial × total proyectado JEE</div>
       </div>
-      <!-- GAP -->
-      <div style="padding:${isMobile?'10px 16px':'12px 14px'};display:flex;flex-direction:${isMobile?'row':'column'};align-items:center;justify-content:center;background:var(--bg2);${isMobile?'':'min-width:110px;'}gap:${isMobile?'16px':'3px'};border-${isMobile?'bottom':'right'}:1px solid var(--border);">
+      <div style="padding:${isMobile?'10px 16px':'12px 14px'};display:flex;flex-direction:${isMobile?'row':'column'};align-items:center;justify-content:center;background:var(--bg2);${isMobile?'':'min-width:110px;'}gap:${isMobile?'16px':'4px'};border-${isMobile?'bottom':'right'}:1px solid var(--border);">
         <div style="text-align:center;">
-          <div style="font-family:var(--mono);font-size:8px;color:var(--text2);letter-spacing:.1em;">BRECHA HÍBRIDA</div>
-          <div style="font-family:var(--mono);font-size:${isMobile?'18px':'20px'};font-weight:600;color:${kWins?'var(--k2)':'var(--rs2)'};">${hybGap !== '—' ? (kWins?'+':'-')+hybGap+'pp' : '—'}</div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text2);letter-spacing:.1em;">BRECHA PROY.</div>
+          <div style="font-family:var(--mono);font-size:${isMobile?'18px':'20px'};font-weight:600;color:${kWins?'var(--k2)':'var(--rs2)'};">${sign(p.gap)}${Math.abs(p.gap).toFixed(2)}pp</div>
           <div style="font-family:var(--mono);font-size:8px;color:${kWins?'var(--k)':'var(--rs)'};">${kWins?'KF':'RS'} gana</div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:2px;">~${fmt(Math.abs(p.gapVotos))} votos</div>
         </div>
-        ${G_kProjVotos && G_rsProjVotos ? `<div style="text-align:center;font-family:var(--mono);font-size:8px;color:var(--text3);">~${fmt(Math.abs(G_kProjVotos-G_rsProjVotos))} votos JEE</div>` : ''}
       </div>
-      <!-- RS -->
       <div style="flex:1;padding:${isMobile?'12px 16px':'14px 20px'};background:var(--rs-bg);">
         <div style="font-family:var(--mono);font-size:9px;color:var(--text2);letter-spacing:.1em;margin-bottom:3px;text-align:${isMobile?'left':'right'};">ROBERTO SÁNCHEZ</div>
-        <div style="font-family:var(--mono);font-size:${isMobile?'36px':'46px'};font-weight:600;color:var(--rs2);line-height:1;text-align:${isMobile?'left':'right'};">${rsDisp}%</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--text1);margin-top:5px;text-align:${isMobile?'left':'right'};">~${rsV} votos (base JEE)</div>
-      </div>
-    </div>
-
-    <!-- ── REFERENCIAS ── -->
-    <div style="display:${isMobile?'flex':'grid'};${isMobile?'flex-direction:column;':'grid-template-columns:1fr 1fr;'}gap:6px;margin-top:8px;">
-      <div style="padding:8px 12px;background:var(--bg2);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-family:var(--mono);font-size:8px;color:var(--text2);letter-spacing:.1em;">JEE DEPARTAMENTAL</div>
-          <div style="font-family:var(--mono);font-size:8px;color:var(--text3);">actas pend. × ratio actual</div>
-        </div>
-        <div style="text-align:right;">
-          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--k2);">${kJeeStr}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:var(--text2);margin:0 6px;">·</span>
-          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--rs2);">${rsJeeStr}</span>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--text2);margin-top:1px;">brecha ${kJeePct!=null?(kJeePct>rsJeePct?'+':'-')+jeeGap+'pp':'—'}</div>
-        </div>
-      </div>
-      <div style="padding:8px 12px;background:var(--bg2);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-family:var(--mono);font-size:8px;color:var(--text2);letter-spacing:.1em;">REGRESIÓN TENDENCIAL</div>
-          <div style="font-family:var(--mono);font-size:8px;color:var(--text3);">últimos 4 snapshots λ=0.5</div>
-        </div>
-        <div style="text-align:right;">
-          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--k2);">${kRegStr}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:var(--text2);margin:0 6px;">·</span>
-          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--rs2);">${rsRegStr}</span>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--text2);margin-top:1px;">brecha ${G_kProjPct!=null?(regWins?'+':'-')+regGap+'pp':'—'}</div>
-        </div>
+        <div style="font-family:var(--mono);font-size:${isMobile?'36px':'46px'};font-weight:600;color:var(--rs2);line-height:1;text-align:${isMobile?'left':'right'};">${p.rsPct.toFixed(2)}%</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text1);margin-top:5px;text-align:${isMobile?'left':'right'};">~${fmt(p.rsVotos)} votos estimados</div>
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text2);margin-top:2px;text-align:${isMobile?'left':'right'};">% tendencial × total proyectado JEE</div>
       </div>
     </div>
   `;
+
+  // Sincronizar los 4 cards de arriba con la misma fuente
+  const kActual  = G_kProjVotos  - (window._kAdicional  || 0);
+  const rsActual = G_rsProjVotos - (window._rsAdicional || 0);
+  set('kf-proj-val', fmt(p.kVotos));
+  set('rs-proj-val', fmt(p.rsVotos));
+  set('kf-proj-sub', '+'+fmt(Math.round(p.kVotos - (window._kActualVotos||0)))+' adicionales');
+  set('rs-proj-sub', '+'+fmt(Math.round(p.rsVotos - (window._rsActualVotos||0)))+' adicionales');
+  const gapPrEl = document.getElementById('gap-proj-val');
+  if (gapPrEl) {
+    gapPrEl.textContent = sign(p.gap)+Math.abs(p.gap).toFixed(2)+'pp';
+    gapPrEl.style.color = kWins ? 'var(--k2)' : 'var(--rs2)';
+  }
+  set('gap-proj-sub', (kWins?'KF':'RS')+' proy. tendencial');
 }
 
 function renderEvoChart(snapshots) {
