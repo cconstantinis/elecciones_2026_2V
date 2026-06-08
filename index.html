@@ -481,19 +481,19 @@ async function fetchDeps() {
     // Agregar voto exterior como sección separada al final
     if (dE?.data?.length) {
       const extRows = dE.data.map(d => ({
-        nombre:         '🌐 ' + d.nombre,
-        ubigeo:         d.ubigeo,
-        actas:          d.actas           ?? 0,
-        contabilizadas: 0,
-        totalActas:     0,
-        enviadasJee:    0,
-        pendientesJee:  0,
-        participacion:  0,
-        totalVotosEmitidos: 0,
-        totalVotosValidos:  0,
-        candidatos:     d.candidatos      || [],
-        error:          d.error           || null,
-        isExterior:     true,
+        nombre:              '🌐 ' + d.nombre,
+        ubigeo:              d.ubigeo,
+        actas:               d.actas              ?? 0,
+        contabilizadas:      d.contabilizadas     ?? 0,
+        totalActas:          d.totalActas         ?? 0,
+        enviadasJee:         d.enviadasJee        ?? 0,
+        pendientesJee:       d.pendientesJee      ?? 0,
+        participacion:       d.participacion      ?? 0,
+        totalVotosEmitidos:  d.totalVotosEmitidos ?? 0,
+        totalVotosValidos:   d.totalVotosValidos  ?? 0,
+        candidatos:          d.candidatos         || [],
+        error:               d.error              || null,
+        isExterior:          true,
       }));
       dP.data = [...dP.data, ...extRows];
     }
