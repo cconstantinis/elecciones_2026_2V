@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perú 2026 — Segunda Vuelta | Dashboard Credicorp</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  /* ── FONTS ── */
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg0:     #0a0e14;
+    --bg1:     #111720;
+    --bg2:     #182030;
+    --bg3:     #1f2d40;
+    --border:  #243348;
+    --border2: #2e4060;
+    --text0:   #e8edf5;
+    --text1:   #a8b8cc;
+    --text2:   #627a96;
+    --text3:   #3d5570;
+
+    --keiko:   #d94040;  /* rojo bandera */
+    --keiko2:  #ff6060;
+    --keiko-bg:#2a1515;
+    --rs:      #2b7de9;  /* azul */
+    --rs2:     #5fa0ff;
+    --rs-bg:   #0f1e38;
+
+    --verde:   #2ecc71;
+    --amarillo:#f39c12;
+    --naranja: #e67e22;
+    --rojo2:   #e74c3c;
+
+    --gold:    #c9a227;
+    --mono:    'IBM Plex Mono', monospace;
+    --sans:    'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg0);
+    color: var(--text0);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--bg1);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text1);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .header-title strong { color: var(--text0); }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--verde);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--verde);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .header-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.06em;
+  }
+  .refresh-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text1);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+  }
+  .refresh-btn:hover { border-color: var(--rs); color: var(--rs2); }
+  .worker-url-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+  .worker-url-bar input {
+    background: var(--bg1);
+    border: 1px solid var(--border);
+    color: var(--text0);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    flex: 1;
+    max-width: 380px;
+  }
+  .worker-url-bar input:focus { outline: 1px solid var(--rs); border-color: var(--rs); }
+
+  /* ── MAIN GRID ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    min-height: calc(100vh - 80px);
+  }
+  .left-col { border-right: 1px solid var(--border); }
+  .right-col { background: var(--bg1); }
+
+  /* ── SECTION HEADER ── */
+  .sec-header {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    background: var(--bg1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sec-header span { color: var(--text2); font-weight: 400; }
+
+  /* ── SCOREBOARD ── */
+  .scoreboard {
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .candidates-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    min-height: 160px;
+  }
+  .cand-card {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .cand-card.keiko { background: var(--keiko-bg); border-right: 1px solid var(--border); }
+  .cand-card.rs    { background: var(--rs-bg); }
+  .cand-name {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text1);
+    margin-bottom: 4px;
+  }
+  .cand-partido { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 0.1em; margin-bottom: 16px; }
+  .cand-pct {
+    font-family: var(--mono);
+    font-size: 52px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .cand-card.keiko .cand-pct { color: var(--keiko2); }
+  .cand-card.rs    .cand-pct { color: var(--rs2); }
+  .cand-votos { font-family: var(--mono); font-size: 10px; color: var(--text2); }
+  .cand-proj { font-family: var(--mono); font-size: 10px; margin-top: 6px; }
+  .cand-card.keiko .cand-proj { color: var(--keiko); }
+  .cand-card.rs    .cand-proj { color: var(--rs); }
+
+  .gap-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    background: var(--bg1);
+    gap: 8px;
+    min-width: 120px;
+  }
+  .gap-label { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 0.14em; text-transform: uppercase; }
+  .gap-value {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .gap-leader { font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; }
+
+  /* ── PROGRESS BAR ── */
+  .actas-bar-section {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg1);
+  }
+  .actas-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+  }
+  .actas-pct-big { font-size: 14px; font-weight: 600; color: var(--text0); }
+  .bar-track {
+    height: 6px;
+    background: var(--bg3);
+    border-radius: 0;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--rs), var(--gold));
+    transition: width 1s ease;
+  }
+  .actas-submeta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+  }
+
+  /* ── CHART HISTORIAL ── */
+  .chart-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chart-wrap {
+    position: relative;
+    height: 160px;
+  }
+
+  /* ── TABLA DEPARTAMENTOS ── */
+  .dep-section {
+    padding: 0;
+  }
+  .dep-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+  .dep-table th {
+    padding: 7px 12px;
+    text-align: left;
+    color: var(--text3);
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    font-size: 9px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+  }
+  .dep-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(36,51,72,0.5);
+    color: var(--text1);
+    vertical-align: middle;
+  }
+  .dep-table tr:hover td { background: var(--bg2); }
+  .dep-name { color: var(--text0); font-size: 10px; }
+  .mini-bar-wrap { display: flex; align-items: center; gap: 4px; }
+  .mini-bar { height: 3px; min-width: 2px; border-radius: 0; display: inline-block; }
+  .dep-actas { color: var(--text3); font-size: 9px; }
+  .dep-lead-k { color: var(--keiko2); font-weight: 600; }
+  .dep-lead-rs { color: var(--rs2); font-weight: 600; }
+  .loading-row td { text-align: center; color: var(--text3); padding: 40px; font-size: 11px; letter-spacing: 0.1em; }
+
+  /* ── PANEL DERECHO — PORTFOLIO ── */
+  .portfolio-panel {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Semaforo */
+  .semaforo-section { border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  .semaforo-grid { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .sem-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .sem-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sem-label { font-family: var(--mono); font-size: 9px; color: var(--text1); }
+  .sem-value { font-family: var(--mono); font-size: 10px; font-weight: 600; }
+  .sem-active { border-color: var(--gold) !important; background: rgba(201,162,39,0.08) !important; }
+
+  /* Impact cards */
+  .impact-section { border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  .impact-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+  .impact-card {
+    padding: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .impact-label { font-family: var(--mono); font-size: 8px; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+  .impact-val { font-family: var(--mono); font-size: 18px; font-weight: 600; }
+  .impact-card.green .impact-val { color: var(--verde); }
+  .impact-card.red   .impact-val { color: var(--keiko); }
+  .impact-card.orange .impact-val { color: var(--naranja); }
+  .impact-sub { font-family: var(--mono); font-size: 8px; color: var(--text3); margin-top: 2px; }
+
+  /* Probabilidad */
+  .prob-section { border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  .prob-bar-wrap { margin-top: 10px; }
+  .prob-labels { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; margin-bottom: 4px; }
+  .prob-bar { height: 20px; display: flex; border: 1px solid var(--border); overflow: hidden; }
+  .prob-k   { background: var(--keiko); transition: width 0.8s ease; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 9px; font-weight: 600; color: white; min-width: 0; overflow: hidden; }
+  .prob-rs  { background: var(--rs);   transition: width 0.8s ease; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 9px; font-weight: 600; color: white; min-width: 0; overflow: hidden; }
+  .prob-desc { font-family: var(--mono); font-size: 9px; color: var(--text2); margin-top: 6px; }
+
+  /* Protocolo */
+  .protocolo-section { padding: 12px 16px; flex: 1; }
+  .proto-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .proto-row {
+    padding: 7px 10px;
+    border-left: 3px solid var(--border2);
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .proto-row.active {
+    border-left-color: var(--gold);
+    background: rgba(201,162,39,0.06);
+  }
+  .proto-row.past { opacity: 0.45; }
+  .proto-hora { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--gold); letter-spacing: 0.08em; }
+  .proto-accion { font-family: var(--sans); font-size: 9px; color: var(--text1); margin-top: 2px; line-height: 1.4; }
+
+  /* Contexto moderador */
+  .contexto-section { border-top: 1px solid var(--border); padding: 10px 16px; }
+  .ctx-tag {
+    display: inline-block;
+    padding: 2px 7px;
+    background: rgba(46,204,113,0.12);
+    border: 1px solid rgba(46,204,113,0.3);
+    color: var(--verde);
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: 0.1em;
+    margin: 2px;
+  }
+  .ctx-nota { font-family: var(--mono); font-size: 8px; color: var(--text2); margin-top: 6px; line-height: 1.5; }
+
+  /* Status bar */
+  .status-bar {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 5px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    z-index: 100;
+  }
+  .status-ok { color: var(--verde); }
+  .status-err { color: var(--keiko); }
+  .status-mid { margin-left: auto; }
+
+  /* DEMO banner */
+  .demo-banner {
+    background: rgba(201,162,39,0.12);
+    border: 1px solid rgba(201,162,39,0.4);
+    border-left: 3px solid var(--gold);
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--gold);
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+
+  /* Responsive scroll */
+  .dep-scroll { max-height: 360px; overflow-y: auto; }
+  .dep-scroll::-webkit-scrollbar { width: 4px; }
+  .dep-scroll::-webkit-scrollbar-track { background: var(--bg1); }
+  .dep-scroll::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .left-col { border-right: none; border-bottom: 1px solid var(--border); }
+    .candidates-row { grid-template-columns: 1fr; }
+    .gap-center { flex-direction: row; min-width: auto; padding: 12px 20px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div>
+    <div class="header-title"><strong>PERÚ 2026</strong> — SEGUNDA VUELTA PRESIDENCIAL</div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:2px;letter-spacing:0.08em;">
+      CREDICORP CAPITAL · MPS / CPS MONITOR · 7 JUN 2026
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div><span id="live-status">CONECTANDO...</span></div>
+    <div class="header-time" id="header-time">--:--:--</div>
+    <button class="refresh-btn" onclick="doRefresh()">↻ <span id="cd">60</span>s</button>
+  </div>
+</header>
+
+<!-- WORKER URL BAR -->
+<div class="worker-url-bar">
+  <span>WORKER:</span>
+  <input type="text" id="workerUrl" placeholder="https://tu-worker.workers.dev" 
+         value="https://onpe-2vta.carloconstantini1.workers.dev" onchange="saveWorkerUrl()">
+  <span style="color:var(--text3)">· Rutas: /todo /todos-departamentos /historial</span>
+</div>
+
+<!-- DEMO BANNER (hidden when live) -->
+<div class="demo-banner" id="demo-banner" style="display:none">
+  ⚠ MODO DEMO — Configura tu Worker URL arriba para datos ONPE en vivo. 
+  ONPE activa resultados a partir de las 18:00h. Datos actualizados automáticamente cada 60s.
+</div>
+
+<!-- MAIN -->
+<div class="main-grid">
+
+  <!-- COLUMNA IZQUIERDA -->
+  <div class="left-col">
+
+    <!-- SCOREBOARD -->
+    <div class="scoreboard">
+      <div class="candidates-row">
+
+        <!-- KEIKO -->
+        <div class="cand-card keiko">
+          <div>
+            <div class="cand-name">Keiko Fujimori</div>
+            <div class="cand-partido">FUERZA POPULAR</div>
+          </div>
+          <div>
+            <div class="cand-pct" id="k-pct">—.—%</div>
+            <div class="cand-votos" id="k-votos">— votos</div>
+            <div class="cand-proj" id="k-proj"></div>
+          </div>
+        </div>
+
+        <!-- GAP CENTER -->
+        <div class="gap-center">
+          <div class="gap-label">Brecha</div>
+          <div class="gap-value" id="gap-val">—</div>
+          <div class="gap-leader" id="gap-leader" style="color:var(--text2)">—</div>
+          <div style="margin-top:12px;">
+            <div class="gap-label">Actas</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:var(--text0);margin-top:2px;" id="actas-pct-center">—%</div>
+          </div>
+        </div>
+
+        <!-- SÁNCHEZ -->
+        <div class="cand-card rs">
+          <div>
+            <div class="cand-name">Roberto Sánchez</div>
+            <div class="cand-partido">JUNTOS POR EL PERÚ</div>
+          </div>
+          <div>
+            <div class="cand-pct" id="rs-pct">—.—%</div>
+            <div class="cand-votos" id="rs-votos">— votos</div>
+            <div class="cand-proj" id="rs-proj"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BARRA ACTAS -->
+      <div class="actas-bar-section">
+        <div class="actas-meta">
+          <div>ACTAS CONTABILIZADAS <span class="actas-pct-big" id="actas-pct-big">0.00%</span></div>
+          <div id="actas-votos-totales" style="color:var(--text1);">votos emitidos: —</div>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="actas-bar" style="width:0%"></div>
+        </div>
+        <div class="actas-submeta">
+          <span id="actas-contabilizadas">actas: — / —</span>
+          <span id="last-update">última actualización: —</span>
+        </div>
+      </div>
+
+    </div><!-- /scoreboard -->
+
+    <!-- HISTORIAL CHART -->
+    <div class="chart-section">
+      <div class="sec-header">
+        Evolución — Votos Válidos (%)
+        <span id="chart-pts">0 snapshots</span>
+      </div>
+      <div class="chart-wrap" style="margin-top:10px;">
+        <canvas id="histChart" role="img" aria-label="Evolución porcentajes Keiko y Sánchez conforme avanza el conteo">Sin datos de historial aún.</canvas>
+      </div>
+    </div>
+
+    <!-- TABLA DEPARTAMENTOS -->
+    <div class="dep-section">
+      <div class="sec-header">
+        Resultados por Departamento
+        <span id="dep-status">cargando...</span>
+      </div>
+      <div class="dep-scroll">
+        <table class="dep-table">
+          <thead>
+            <tr>
+              <th>Departamento</th>
+              <th>KF %</th>
+              <th>RS %</th>
+              <th>Barra</th>
+              <th>Actas</th>
+            </tr>
+          </thead>
+          <tbody id="dep-tbody">
+            <tr class="loading-row"><td colspan="5">⬝ ESPERANDO DATOS ONPE...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /left-col -->
+
+  <!-- COLUMNA DERECHA — PORTFOLIO PANEL -->
+  <div class="right-col portfolio-panel">
+
+    <!-- SEMÁFORO -->
+    <div class="semaforo-section">
+      <div class="sec-header" style="padding:0;background:transparent;border:none;margin-bottom:0;">
+        Semáforo de Resultado
+        <span id="sem-estado">ONPE vivo</span>
+      </div>
+      <div class="semaforo-grid" id="semaforo-grid">
+        <!-- se llena en JS -->
+      </div>
+    </div>
+
+    <!-- IMPACTO PORTAFOLIO -->
+    <div class="impact-section">
+      <div class="sec-header" style="padding:0;background:transparent;border:none;margin-bottom:0;">
+        Impacto MPS — CC
+        <span>excl. FX (hedgeado)</span>
+      </div>
+      <div class="impact-cards">
+        <div class="impact-card green">
+          <div class="impact-label">Keiko base</div>
+          <div class="impact-val">−23.9</div>
+          <div class="impact-sub">bps vs peers</div>
+        </div>
+        <div class="impact-card red">
+          <div class="impact-label">Sánchez base</div>
+          <div class="impact-val">+24.6</div>
+          <div class="impact-sub">bps spread</div>
+        </div>
+        <div class="impact-card green" style="border-color:rgba(46,204,113,0.3);">
+          <div class="impact-label">Keiko favorable</div>
+          <div class="impact-val">−35.0</div>
+          <div class="impact-sub">rally spread</div>
+        </div>
+        <div class="impact-card orange">
+          <div class="impact-label">Sánchez adverso</div>
+          <div class="impact-val">+48.4</div>
+          <div class="impact-sub">bps (tensión)</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;padding:7px 8px;background:var(--bg2);border:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text3);line-height:1.5;">
+          OW Sov PEN 13% · Corp IG 31% · HY 4% · DV01 CC 2.39mm/bp<br>
+          Moderador: Congreso derecha · Spread Perú/Chile 5Y ~120bp
+        </div>
+      </div>
+    </div>
+
+    <!-- PROBABILIDAD -->
+    <div class="prob-section">
+      <div class="sec-header" style="padding:0;background:transparent;border:none;margin-bottom:0;">
+        Probabilidad implícita
+        <span id="prob-src">modelo encuestas</span>
+      </div>
+      <div class="prob-bar-wrap">
+        <div class="prob-labels">
+          <span style="color:var(--keiko2)" id="prob-k-label">K — %</span>
+          <span style="color:var(--rs2)" id="prob-rs-label">RS — %</span>
+        </div>
+        <div class="prob-bar">
+          <div class="prob-k" id="prob-k-bar" style="width:50%">—</div>
+          <div class="prob-rs" id="prob-rs-bar" style="width:50%">—</div>
+        </div>
+        <div class="prob-desc" id="prob-desc">Iniciando datos ONPE. Las probabilidades se actualizarán conforme avance el conteo.</div>
+      </div>
+    </div>
+
+    <!-- PROTOCOLO NOCHE ELECTORAL -->
+    <div class="protocolo-section">
+      <div class="sec-header" style="padding:0;background:transparent;border:none;margin-bottom:0;">
+        Protocolo 7-Jun
+        <span id="proto-phase">–</span>
+      </div>
+      <div class="proto-rows" id="proto-rows">
+        <!-- se llena en JS -->
+      </div>
+    </div>
+
+    <!-- CONTEXTO MODERADOR -->
+    <div class="contexto-section">
+      <div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:0.12em;margin-bottom:6px;">MODERADORES ESTRUCTURALES</div>
+      <span class="ctx-tag">CONGRESO DERECHA</span>
+      <span class="ctx-tag">FP+RP+ALIADOS</span>
+      <span class="ctx-tag">BLOQUEO AGENDA IZQ.</span>
+      <div class="ctx-nota">
+        Sánchez ≠ Castillo. IEP: Derecha 43% (vs 31% en 2021). Boric/Lula análogo más cercano que Castillo 2021. 
+        Overshooting esperado MENOR que 2021.
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+</div><!-- /main-grid -->
+
+<!-- STATUS BAR -->
+<div class="status-bar" style="margin-bottom:0">
+  <span id="st-source">· Fuente: ONPE oficial</span>
+  <span id="st-id" style="color:var(--text2)">idEleccion: —</span>
+  <span id="st-mode">modo: —</span>
+  <span class="status-mid" id="st-refresh">próximo refresh: —</span>
+  <span>· Credicorp Capital MPS/CPS · 7 Jun 2026</span>
+</div>
+
+<div style="height:32px"></div><!-- status bar spacer -->
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════════
+
+const WORKER_STORAGE_KEY = 'onpe_2vta_worker_url';
+let WORKER_URL = localStorage.getItem(WORKER_STORAGE_KEY) || 'https://onpe-2vta.carloconstantini1.workers.dev';
+document.getElementById('workerUrl').value = WORKER_URL;
+
+function saveWorkerUrl() {
+  WORKER_URL = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+  localStorage.setItem(WORKER_STORAGE_KEY, WORKER_URL);
+}
+
+// ── Demo data (simulacro Ipsos) ───────────────────────────
+const DEMO = {
+  participantes: { success: true, data: [
+    { nombreCandidato: 'KEIKO SOFÍA FUJIMORI HIGUCHI', porcentajeVotosValidos: 43.2, totalVotosValidos: 0 },
+    { nombreCandidato: 'ROBERTO SÁNCHEZ PALOMINO',    porcentajeVotosValidos: 43.8, totalVotosValidos: 0 },
+  ]},
+  totales: { success: true, data: {
+    actasContabilizadas: 0,
+    totalActas: 96549,
+    totalVotosEmitidos: 0,
+    porcentajeActas: 0,
+  }},
+  idEleccion: 'DEMO',
+  _demo: true,
+};
+
+// ── Portfolio config ──────────────────────────────────────
+const SEMAFORO = [
+  { color:'#2ecc71', label:'🟢 VERDE — Keiko gana clara', kMin:49, desc:'Ejecutar ADD Soberano 13%→16%' },
+  { color:'#f39c12', label:'🟡 ALERTA 1 — K leve ventaja', kMin:46, desc:'HOLD. Monitorear interior.' },
+  { color:'#e67e22', label:'🟠 ALERTA 2 — Empate técnico', kMin:43, desc:'Revisar hedge NDF. No agregar.' },
+  { color:'#e74c3c', label:'🔴 ROJO — RS lidera', kMin:0,  desc:'Trade 4 · Reducir Corp HY→0%' },
+];
+
+const PROTOCOLO = [
+  { hora: '17:00', key: 'cierre', label: 'Cierre de mesas. Primer boca de urna (Ipsos 17h).' },
+  { hora: '18:00', key: '1800',   label: 'ONPE activa resultados. Monitor USDPEN c/15min. ≤3.62 OK.' },
+  { hora: '20:00', key: '2000',   label: 'Primeras actas. Preparar add Sov si K lidera Lima.' },
+  { hora: '21:30', key: '2130',   label: '~70% actas. CLAVE: Lima vs interior. Interior rural = RS base.' },
+  { hora: '22:30', key: '2230',   label: 'Interior confirma → ejecutar Trade plan 50%.' },
+  { hora: '00:00', key: '0000',   label: '>60% con gap >4pp → alta confianza. Trade plan 100%.' },
+  { hora: '08-Jun 09:30', key: 'manana', label: 'No perseguir rally. Esperar retroceso YTM 5.8-5.9%.' },
+];
+
+// ── Estado global ─────────────────────────────────────────
+let lastData    = null;
+let histChart   = null;
+let countdown   = 60;
+let timer       = null;
+let isDemo      = false;
+let activeId    = '—';
+
+// ══════════════════════════════════════════════════════════
+//  FETCH
+// ══════════════════════════════════════════════════════════
+
+async function fetchLive() {
+  if (!WORKER_URL) throw new Error('No Worker URL');
+  const ctrl = new AbortController();
+  const tmt  = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res  = await fetch(`${WORKER_URL}/todo`, { signal: ctrl.signal });
+    const data = await res.json();
+    clearTimeout(tmt);
+    if (!data?.participantes?.success) throw new Error('ONPE: respuesta inválida');
+    return data;
+  } finally {
+    clearTimeout(tmt);
+  }
+}
+
+async function fetchDepartamentos() {
+  if (!WORKER_URL) return null;
+  const ctrl = new AbortController();
+  const tmt  = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res  = await fetch(`${WORKER_URL}/todos-departamentos`, { signal: ctrl.signal });
+    const data = await res.json();
+    clearTimeout(tmt);
+    return data;
+  } catch { return null; }
+  finally { clearTimeout(tmt); }
+}
+
+async function fetchHistorial() {
+  if (!WORKER_URL) return null;
+  try {
+    const res  = await fetch(`${WORKER_URL}/historial`);
+    const data = await res.json();
+    return data?.data || [];
+  } catch { return null; }
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════
+
+function fmt(n, d=1) { return typeof n === 'number' ? n.toFixed(d) : '—'; }
+function fmtVotos(n) { return n > 0 ? n.toLocaleString('es-PE') : '—'; }
+function fmtPct(n) { return fmt(n) + '%'; }
+
+function getKeikoRS(data) {
+  const parts = data.participantes?.data || [];
+  let keiko = parts.find(p => /FUJIMORI|KEIKO/i.test(p.nombreCandidato));
+  let rs    = parts.find(p => /SÁNCHEZ|SANCHEZ/i.test(p.nombreCandidato));
+  // fallback: mayores porcentajes
+  if (!keiko && !rs && parts.length === 2) {
+    [keiko, rs] = parts;
+  }
+  return { keiko: keiko || {}, rs: rs || {} };
+}
+
+function render(data) {
+  lastData = data;
+  isDemo   = !!data._demo;
+  activeId = data.idEleccion || '—';
+
+  document.getElementById('demo-banner').style.display = isDemo ? '' : 'none';
+
+  const { keiko, rs } = getKeikoRS(data);
+  const totales = data.totales?.data || {};
+
+  const kPct  = keiko.porcentajeVotosValidos ?? 0;
+  const rsPct = rs.porcentajeVotosValidos ?? 0;
+  const gap   = Math.abs(kPct - rsPct);
+  const actas = totales.actasContabilizadas ?? 0;
+  const totalA= totales.totalActas ?? 96549;
+  const emitidos = totales.totalVotosEmitidos ?? 0;
+
+  // Proyección lineal
+  function proj(pct) {
+    if (!pct || actas < 0.5) return '';
+    return `→ ${fmt(pct)}% proy.`;
+  }
+
+  // Scoreboard
+  document.getElementById('k-pct').textContent   = actas > 0 ? fmtPct(kPct) : '—.—%';
+  document.getElementById('rs-pct').textContent  = actas > 0 ? fmtPct(rsPct) : '—.—%';
+  document.getElementById('k-votos').textContent  = fmtVotos(keiko.totalVotosValidos) + ' votos válidos';
+  document.getElementById('rs-votos').textContent = fmtVotos(rs.totalVotosValidos) + ' votos válidos';
+  document.getElementById('k-proj').textContent   = actas > 0 ? proj(kPct) : 'esperando actas...';
+  document.getElementById('rs-proj').textContent  = actas > 0 ? proj(rsPct) : 'esperando actas...';
+
+  // Gap
+  const gapEl = document.getElementById('gap-val');
+  const leadEl = document.getElementById('gap-leader');
+  if (actas > 0) {
+    gapEl.textContent  = '+' + fmt(gap) + 'pp';
+    const leader = kPct >= rsPct ? 'K' : 'RS';
+    gapEl.style.color  = leader === 'K' ? '#ff6060' : '#5fa0ff';
+    leadEl.textContent = leader === 'K' ? 'lidera KEIKO' : 'lidera SÁNCHEZ';
+    leadEl.style.color = leader === 'K' ? '#d94040' : '#2b7de9';
+  } else {
+    gapEl.textContent  = '—';
+    leadEl.textContent = 'esperando...';
+    gapEl.style.color  = 'var(--text2)';
+  }
+  document.getElementById('actas-pct-center').textContent = fmt(actas) + '%';
+
+  // Barra actas
+  document.getElementById('actas-pct-big').textContent     = fmt(actas) + '%';
+  document.getElementById('actas-bar').style.width         = Math.min(actas, 100) + '%';
+  document.getElementById('actas-votos-totales').textContent = emitidos > 0 ? 'votos emitidos: ' + fmtVotos(emitidos) : '';
+  document.getElementById('actas-contabilizadas').textContent =
+    `actas: ${fmtVotos(Math.round((actas/100)*totalA))} / ${fmtVotos(totalA)}`;
+  document.getElementById('last-update').textContent =
+    'actualización: ' + new Date().toLocaleTimeString('es-PE');
+
+  // Semáforo
+  renderSemaforo(kPct, actas);
+
+  // Probabilidad
+  renderProbabilidad(kPct, rsPct, actas);
+
+  // Live status
+  const statusEl = document.getElementById('live-status');
+  statusEl.textContent = isDemo ? 'DEMO' : 'VIVO';
+  statusEl.parentElement.style.color = isDemo ? 'var(--gold)' : 'var(--verde)';
+
+  // Status bar
+  document.getElementById('st-source').textContent = isDemo
+    ? '⚠ DEMO — configura Worker para datos reales'
+    : '✓ ONPE EN VIVO';
+  document.getElementById('st-source').className = isDemo ? 'status-err' : 'status-ok';
+  document.getElementById('st-id').textContent = `idEleccion: ${activeId}`;
+  document.getElementById('st-mode').textContent = isDemo ? 'modo: DEMO (simulacro Ipsos)' : 'modo: LIVE ONPE';
+}
+
+function renderSemaforo(kPct, actas) {
+  const grid = document.getElementById('semaforo-grid');
+  grid.innerHTML = '';
+
+  // Determinar estado actual basado en kPct de ONPE (solo si hay actas)
+  let activeIdx = -1;
+  if (actas > 5) {
+    for (let i = 0; i < SEMAFORO.length; i++) {
+      if (kPct >= SEMAFORO[i].kMin) { activeIdx = i; break; }
+    }
+    if (activeIdx === -1) activeIdx = SEMAFORO.length - 1;
+  }
+
+  SEMAFORO.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'sem-row' + (i === activeIdx && actas > 5 ? ' sem-active' : '');
+    div.innerHTML = `
+      <div class="sem-dot" style="background:${s.color}"></div>
+      <div class="sem-label">${s.label}</div>
+      <div class="sem-value" style="color:${s.color};font-size:8px;">${i === activeIdx && actas > 5 ? '◀ NOW' : ''}</div>
+    `;
+    grid.appendChild(div);
+  });
+
+  // Mostrar acción actual
+  if (activeIdx >= 0 && actas > 5) {
+    const nota = document.createElement('div');
+    nota.style.cssText = 'margin-top:4px;padding:6px 8px;background:rgba(201,162,39,0.08);border:1px solid rgba(201,162,39,0.25);font-family:var(--mono);font-size:9px;color:var(--gold);';
+    nota.textContent = '→ ' + SEMAFORO[activeIdx].desc;
+    grid.appendChild(nota);
+  }
+
+  document.getElementById('sem-estado').textContent = actas > 5 ? `${fmt(actas)}% actas` : 'esperando datos';
+}
+
+function renderProbabilidad(kPct, rsPct, actas) {
+  // Probabilidad simplificada: basado en gap y % procesado
+  // Fuente: modelo encuestas hasta ~5%, luego mixto, luego ONPE puro
+  let probK, probRS, src;
+
+  if (actas < 2) {
+    // Modelo encuestas: ~empate técnico (Datum + Ipsos)
+    probK = 48; probRS = 52;
+    src = 'modelo encuestas (Datum + Ipsos)';
+  } else if (actas < 30) {
+    // Mixto — ponderamos 30% ONPE, 70% encuestas
+    const onpeK  = kPct / (kPct + rsPct) * 100;
+    probK  = Math.round(0.3 * onpeK + 0.7 * 48);
+    probRS = 100 - probK;
+    src = `mixto (${fmt(actas)}% actas)`;
+  } else {
+    // Dominado por ONPE con ajuste de confianza
+    const onpeK = kPct / (kPct + rsPct + 0.001) * 100;
+    // Mayor certeza con más actas
+    const conf = Math.min((actas - 30) / 70, 1);
+    probK  = Math.round(50 + (onpeK - 50) * (0.7 + 0.3 * conf));
+    probRS = 100 - probK;
+    src = `ONPE ${fmt(actas)}% actas`;
+  }
+
+  probK  = Math.max(2, Math.min(98, probK));
+  probRS = 100 - probK;
+
+  document.getElementById('prob-k-label').textContent  = `KF ${probK}%`;
+  document.getElementById('prob-rs-label').textContent = `RS ${probRS}%`;
+  document.getElementById('prob-k-bar').style.width    = probK + '%';
+  document.getElementById('prob-rs-bar').style.width   = probRS + '%';
+  document.getElementById('prob-k-bar').textContent    = probK > 10 ? `${probK}%` : '';
+  document.getElementById('prob-rs-bar').textContent   = probRS > 10 ? `${probRS}%` : '';
+  document.getElementById('prob-src').textContent      = src;
+
+  const winner = probK > probRS ? 'Keiko' : 'Sánchez';
+  const margin = Math.abs(probK - probRS);
+  const certeza = margin > 20 ? 'alta' : margin > 10 ? 'moderada' : 'baja';
+  document.getElementById('prob-desc').textContent =
+    actas < 2
+      ? 'Pre-conteo: simulacro Ipsos 43.2%K / 43.8%RS. Ratio migración B/V = variable crítica.'
+      : `${winner} lidera con prob. ${Math.max(probK,probRS)}% (certeza ${certeza}). Ratio Lima/interior clave.`;
+}
+
+function renderProtocolo() {
+  const rows = document.getElementById('proto-rows');
+  rows.innerHTML = '';
+  const now  = new Date();
+  const h    = now.getHours();
+  const m    = now.getMinutes();
+  const hhmm = h * 60 + m;
+
+  const FASES = [
+    { hr: 17*60,   key: 'cierre' },
+    { hr: 18*60,   key: '1800' },
+    { hr: 20*60,   key: '2000' },
+    { hr: 21*60+30,key: '2130' },
+    { hr: 22*60+30,key: '2230' },
+    { hr: 24*60,   key: '0000' },
+    { hr: 32*60+30,key: 'manana' }, // día siguiente 08:30
+  ];
+
+  PROTOCOLO.forEach((p, i) => {
+    const row = document.createElement('div');
+    const faseHr = FASES[i]?.hr ?? 0;
+    const nextHr = FASES[i+1]?.hr ?? 9999;
+    const isPast   = hhmm > nextHr;
+    const isActive = hhmm >= faseHr && hhmm < nextHr;
+    row.className = 'proto-row' + (isActive ? ' active' : '') + (isPast ? ' past' : '');
+    row.innerHTML = `
+      <div class="proto-hora">${p.hora}h ${isActive ? '◀ AHORA' : ''}</div>
+      <div class="proto-accion">${p.label}</div>
+    `;
+    rows.appendChild(row);
+  });
+
+  // Fase actual
+  const activeFase = PROTOCOLO.find((p, i) => {
+    const faseHr = FASES[i]?.hr ?? 0;
+    const nextHr = FASES[i+1]?.hr ?? 9999;
+    return hhmm >= faseHr && hhmm < nextHr;
+  });
+  document.getElementById('proto-phase').textContent = activeFase
+    ? activeFase.hora + 'h'
+    : h >= 17 ? '8-Jun' : 'pre-cierre';
+}
+
+// ── Chart historial ───────────────────────────────────────
+
+function renderHistChart(snapshots) {
+  if (!snapshots || snapshots.length < 2) {
+    document.getElementById('chart-pts').textContent = snapshots?.length
+      ? '1 snapshot (necesita 2+)'
+      : '0 snapshots';
+    return;
+  }
+
+  document.getElementById('chart-pts').textContent = snapshots.length + ' snapshots';
+
+  const labels = snapshots.map(s => fmt(s.actas, 1) + '%');
+  const kData  = snapshots.map(s => {
+    const k = s.data?.find(d => /FUJIMORI|KEIKO/i.test(d.nombre));
+    return k ? parseFloat(k.pct.toFixed(2)) : null;
+  });
+  const rsData = snapshots.map(s => {
+    const rs = s.data?.find(d => /SÁNCHEZ|SANCHEZ/i.test(d.nombre));
+    return rs ? parseFloat(rs.pct.toFixed(2)) : null;
+  });
+
+  if (histChart) histChart.destroy();
+  histChart = new Chart(document.getElementById('histChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Keiko F.',
+          data: kData,
+          borderColor: '#d94040',
+          backgroundColor: 'rgba(217,64,64,0.08)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#d94040',
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: 'R. Sánchez',
+          data: rsData,
+          borderColor: '#2b7de9',
+          backgroundColor: 'rgba(43,125,233,0.08)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#2b7de9',
+          tension: 0.3,
+          fill: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#182030',
+          borderColor: '#243348',
+          borderWidth: 1,
+          titleColor: '#a8b8cc',
+          bodyColor: '#e8edf5',
+          titleFont: { family: "'IBM Plex Mono'" },
+          bodyFont: { family: "'IBM Plex Mono'", size: 11 },
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#627a96', font: { family: "'IBM Plex Mono'", size: 9 }, maxTicksLimit: 8, autoSkip: true },
+          grid:  { color: 'rgba(36,51,72,0.6)' },
+        },
+        y: {
+          ticks: { color: '#627a96', font: { family: "'IBM Plex Mono'", size: 9 }, callback: v => v.toFixed(1) + '%' },
+          grid:  { color: 'rgba(36,51,72,0.6)' },
+          min: 40, max: 60,
+        }
+      }
+    }
+  });
+
+  // Leyenda manual
+  const chartSec = document.querySelector('.chart-section');
+  let legend = chartSec.querySelector('.chart-legend');
+  if (!legend) {
+    legend = document.createElement('div');
+    legend.className = 'chart-legend';
+    legend.style.cssText = 'display:flex;gap:16px;margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--text2)';
+    legend.innerHTML = `
+      <span style="display:flex;align-items:center;gap:4px;">
+        <span style="width:12px;height:2px;background:#d94040;display:inline-block"></span> Keiko F.
+      </span>
+      <span style="display:flex;align-items:center;gap:4px;">
+        <span style="width:12px;height:2px;background:#2b7de9;display:inline-block"></span> R. Sánchez
+      </span>
+    `;
+    chartSec.appendChild(legend);
+  }
+}
+
+// ── Tabla departamentos ───────────────────────────────────
+
+function renderDepartamentos(depData) {
+  const tbody = document.getElementById('dep-tbody');
+  if (!depData?.data?.length) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Sin datos departamentales</td></tr>';
+    document.getElementById('dep-status').textContent = 'sin datos';
+    return;
+  }
+
+  // Sort: mayor actas primero, luego por diferencia
+  const sorted = [...depData.data].sort((a, b) => (b.actas || 0) - (a.actas || 0));
+  const BAR_W = 80;
+
+  tbody.innerHTML = sorted.map(d => {
+    const cands = d.candidatos || [];
+    const k  = cands.find(c => /FUJIMORI|KEIKO/i.test(c.nombre)) || cands[0] || {};
+    const rs = cands.find(c => /SÁNCHEZ|SANCHEZ/i.test(c.nombre)) || cands[1] || {};
+    const kPct  = parseFloat(k.pct || 0);
+    const rsPct = parseFloat(rs.pct || 0);
+    const total = kPct + rsPct || 100;
+    const kW  = Math.round((kPct / total) * BAR_W);
+    const rsW = BAR_W - kW;
+    const leads = kPct >= rsPct ? 'k' : 'rs';
+    const pctStr = d.actas > 0 ? fmt(d.actas) + '%' : '—%';
+
+    return `<tr>
+      <td class="dep-name">${d.nombre}</td>
+      <td class="${leads==='k'?'dep-lead-k':''}">
+        ${kPct > 0 ? fmtPct(kPct) : '—'}
+      </td>
+      <td class="${leads==='rs'?'dep-lead-rs':''}">
+        ${rsPct > 0 ? fmtPct(rsPct) : '—'}
+      </td>
+      <td>
+        <div class="mini-bar-wrap">
+          <div class="mini-bar" style="width:${kW}px;background:#d94040"></div>
+          <div class="mini-bar" style="width:${rsW}px;background:#2b7de9"></div>
+        </div>
+      </td>
+      <td class="dep-actas">${pctStr}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('dep-status').textContent = sorted.length + ' departamentos';
+}
+
+// ══════════════════════════════════════════════════════════
+//  RELOJ Y REFRESH
+// ══════════════════════════════════════════════════════════
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('header-time').textContent =
+    now.toLocaleTimeString('es-PE', { hour12: false });
+  renderProtocolo();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function startTimer() {
+  clearInterval(timer);
+  countdown = 60;
+  timer = setInterval(() => {
+    countdown--;
+    const el = document.getElementById('cd');
+    if (el) el.textContent = countdown + 's';
+    document.getElementById('st-refresh').textContent = `próximo refresh: ${countdown}s`;
+    if (countdown <= 0) doRefresh();
+  }, 1000);
+}
+
+async function doRefresh() {
+  clearInterval(timer);
+  const cd = document.getElementById('cd');
+  if (cd) cd.textContent = '…';
+
+  try {
+    const data = await fetchLive();
+    render(data);
+
+    // Cargar historial y departamentos en paralelo
+    const [hist, deps] = await Promise.all([fetchHistorial(), fetchDepartamentos()]);
+    if (hist) renderHistChart(hist);
+    if (deps) renderDepartamentos(deps);
+
+  } catch (e) {
+    console.warn('Fetch falló, usando demo:', e.message);
+    render(DEMO);
+  }
+  startTimer();
+}
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+
+renderSemaforo(0, 0);
+renderProbabilidad(0, 0, 0);
+renderProtocolo();
+
+(async () => {
+  try {
+    const data = await fetchLive();
+    render(data);
+    const [hist, deps] = await Promise.all([fetchHistorial(), fetchDepartamentos()]);
+    if (hist) renderHistChart(hist);
+    if (deps) renderDepartamentos(deps);
+  } catch {
+    render(DEMO);
+  }
+  startTimer();
+})();
+</script>
+</body>
+</html>
