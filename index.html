@@ -871,7 +871,9 @@ function renderEvoChart(snapshots) {
   }).filter(Boolean);
 
   // Regresión lineal sobre últimos N puntos (más peso a los recientes)
-  const N = Math.min(kData.length, 20);
+  // Ventana chica: captura pendiente ACTUAL, no promedio histórico
+  // Con pocos snapshots (<10) usa todos; con muchos usa últimos 6
+  const N = kData.length < 10 ? kData.length : 6;
   const kReg  = linReg(kData.slice(-N));
   const rsReg = linReg(rsData.slice(-N));
   const lastX = kData[kData.length-1]?.x ?? 0;
