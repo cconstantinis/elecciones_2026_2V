@@ -698,14 +698,14 @@ function renderProj(data) {
   }
 
   const gapActEl = document.getElementById('gap-actual-val');
-  gapActEl.textContent = sign(gapActual)+fmt(Math.abs(Math.round(gapActual)));
+  gapActEl.textContent = sign(gapActual)+fmt(Math.abs(Math.round(gapActual)))+' votos';
   gapActEl.style.color = gapActual>=0 ? 'var(--k2)' : 'var(--rs2)';
   set('gap-actual-sub', (gapActual>=0?'KF':'RS')+' adelante actual');
 
   const gapPrEl = document.getElementById('gap-proj-val');
-  gapPrEl.textContent = sign(gapProj)+fmt(Math.abs(Math.round(gapProj)));
+  gapPrEl.textContent = sign(gapProj)+fmt(Math.abs(Math.round(gapProj)))+' votos';
   gapPrEl.style.color = gapProj>=0 ? 'var(--k2)' : 'var(--rs2)';
-  set('gap-proj-sub', (gapProj>=0?'KF':'RS')+' proy. al 100%');
+  set('gap-proj-sub', (gapProj>=0?'KF':'RS')+' proy. actas pend. + JEE');
   renderProjSummary();
 
   // Tabla
@@ -840,7 +840,7 @@ function renderProjSummary() {
 
   el.innerHTML = `
     <div style="font-family:var(--mono);font-size:8px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-top:16px;margin-bottom:5px;">
-      Proyección al 100% — Regresión tendencial × votos JEE
+      Modelo Tendencial — Regresión ponderada (N dinámico, λ=0.3) × votos JEE
     </div>
     <div style="display:flex;flex-direction:${isMobile?'column':'row'};border:1px solid var(--border);">
       <div style="flex:1;padding:${isMobile?'12px 16px':'14px 20px'};background:var(--k-bg);border-${isMobile?'bottom':'right'}:1px solid var(--border);">
@@ -866,19 +866,7 @@ function renderProjSummary() {
     </div>
   `;
 
-  // Sincronizar los 4 cards de arriba con la misma fuente
-  const kActual  = G_kProjVotos  - (window._kAdicional  || 0);
-  const rsActual = G_rsProjVotos - (window._rsAdicional || 0);
-  set('kf-proj-val', fmt(p.kVotos));
-  set('rs-proj-val', fmt(p.rsVotos));
-  set('kf-proj-sub', '+'+fmt(Math.round(p.kVotos - (window._kActualVotos||0)))+' adicionales');
-  set('rs-proj-sub', '+'+fmt(Math.round(p.rsVotos - (window._rsActualVotos||0)))+' adicionales');
-  const gapPrEl = document.getElementById('gap-proj-val');
-  if (gapPrEl) {
-    gapPrEl.textContent = sign(p.gap)+Math.abs(p.gap).toFixed(2)+'pp';
-    gapPrEl.style.color = kWins ? 'var(--k2)' : 'var(--rs2)';
-  }
-  set('gap-proj-sub', (kWins?'KF':'RS')+' proy. tendencial');
+  // Top cards usan JEE — renderProj ya los actualiza, no sobreescribir
 }
 
 function renderEvoChart(snapshots) {
@@ -903,8 +891,10 @@ function renderEvoChart(snapshots) {
   // Ventana muy reciente: captura pendiente ACTUAL (patrón tijeras se acelera)
   // N=4: solo los últimos 4 snapshots — pendiente más reciente
   // lambda=0.5: ponderación exponencial — el snapshot más reciente pesa e^2 ≈ 7x más que el más antiguo
-  // N=8, λ=0.3: captura tendencia última hora sin ser tan volátil
-  const N = kData.length < 8 ? kData.length : 8;
+  // N base=20, +2 por cada 2% adicional de actas sobre 80% → más estable al final
+  const actasPct = kData.length > 0 ? kData[kData.length-1].x : 0;
+  const extraN   = actasPct > 80 ? Math.floor((actasPct - 80) / 2) * 2 : 0;
+  const N        = Math.min(kData.length, 20 + extraN);
   const kReg  = linReg(kData.slice(-N), 0.3);
   const rsReg = linReg(rsData.slice(-N), 0.3);
   const lastX = kData[kData.length-1]?.x ?? 0;
